@@ -2,7 +2,11 @@
 <html>
   <head>
     <base target="_top">
-    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- フォントの読み込み待ちで画面が真っ白にならないよう、描画をブロックしない形で読み込む -->
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all';">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet"></noscript>
     <style>
       :root {
         --primary: #FF9F1C; --secondary: #FFBF69; --accent: #2EC4B6; --bg: #FFFBEB;
@@ -39,7 +43,9 @@
       .xp-bar { height: 100%; background: var(--accent); width: 0%; transition: width 1s ease-out; }
 
       .search-area { padding: 15px 20px 5px 20px; background: white; }
-      .search-box { position: relative; margin-bottom: 10px; }
+      .search-box { position: relative; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+      .refresh-btn { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #ddd; background: #f9f9f9; font-size: 1.1rem; cursor: pointer; transition: transform 0.1s; }
+      .refresh-btn:active { transform: scale(0.9); }
       .search-input { width: 100%; padding: 12px 15px 12px 40px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 25px; font-family: var(--font-body); font-size: 1rem; background: #f9f9f9; transition: border 0.2s; }
       .search-input:focus { border-color: var(--accent); outline: none; background: #fff; }
       .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #aaa; }
@@ -86,12 +92,44 @@
       [contenteditable="true"]:focus { background: #E6F0FF; border-bottom: 2px solid var(--edit); }
       .edit-hint { text-align: center; font-size: 0.8rem; color: var(--edit); margin-bottom: 10px; font-weight: bold; background: #E6F0FF; padding: 5px; border-radius: 10px; }
 
-      #view-cooking { background-color: #333; color: white; height: 100vh; overflow: hidden; }
+      #view-cooking { background-color: #333; color: white; height: 100vh; overflow: hidden; position: relative; }
       .cooking-container { display: flex; flex-direction: column; height: 100%; padding: 20px; box-sizing: border-box; }
-      .cooking-progress { color: var(--secondary); font-family: var(--font-title); text-align: center; margin-bottom: 20px; font-size: 1.2rem; }
-      .cooking-card { flex: 1; background: white; color: var(--text); border-radius: 20px; padding: 30px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold; line-height: 1.5; text-align: center; box-shadow: 0 10px 0 #999; margin-bottom: 30px; position: relative; border: 5px solid var(--primary); }
+      .cooking-progress { color: var(--secondary); font-family: var(--font-title); text-align: center; margin-bottom: 12px; font-size: 1.2rem; }
+      .cooking-card { flex: 1; background: white; color: var(--text); border-radius: 20px; padding: 25px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: bold; line-height: 1.5; text-align: center; box-shadow: 0 10px 0 #999; margin-bottom: 15px; position: relative; border: 5px solid var(--primary); overflow-y: auto; min-height: 100px; }
       .cooking-controls { display: flex; gap: 10px; }
       .cooking-btn { flex: 1; padding: 20px; border-radius: 15px; border: none; font-family: var(--font-title); font-size: 1.5rem; cursor: pointer; box-shadow: 0 6px 0 rgba(0,0,0,0.3); color: white; }
+
+      /* --- クッキング中の材料表示 --- */
+      .cook-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+      .cook-recipe-name { flex: 1; font-family: var(--font-title); font-size: 1rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cook-servings { font-size: 0.75rem; color: var(--secondary); font-family: var(--font-body); }
+      .ing-toggle-btn { background: var(--accent); color: white; border: none; border-radius: 20px; padding: 9px 14px; font-family: var(--font-title); font-size: 0.85rem; cursor: pointer; box-shadow: 0 4px 0 #259D92; white-space: nowrap; }
+      .ing-toggle-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #259D92; }
+
+      .cook-now { background: rgba(255,255,255,0.07); border: 2px dashed var(--secondary); border-radius: 15px; padding: 10px 12px; margin-bottom: 15px; max-height: 24vh; overflow-y: auto; }
+      .cook-now.empty { border-color: #666; }
+      .cook-now-title { font-size: 0.75rem; color: var(--secondary); font-weight: bold; margin-bottom: 6px; letter-spacing: 0.05em; }
+      .cook-now-hint { font-size: 0.8rem; color: #bbb; line-height: 1.4; }
+      .cook-chip { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #333; border-radius: 20px; padding: 6px 13px; margin: 3px 3px 3px 0; font-weight: bold; font-size: 0.95rem; }
+      .cook-chip .amt { color: #1a9c90; font-weight: bold; }
+
+      .ing-sheet-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); display: none; z-index: 200; }
+      .ing-sheet-overlay.active { display: block; }
+      .ing-sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 85%; background: #fff; color: var(--text); border-top-left-radius: 25px; border-top-right-radius: 25px; padding: 12px 20px 20px; box-sizing: border-box; display: flex; flex-direction: column; animation: sheetUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+      @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+      .ing-sheet-handle { width: 45px; height: 5px; border-radius: 3px; background: #ddd; margin: 0 auto 12px auto; }
+      .ing-sheet-header { display: flex; align-items: baseline; justify-content: space-between; }
+      .ing-sheet-title { font-family: var(--font-title); font-size: 1.1rem; color: var(--primary); }
+      .ing-sheet-body { overflow-y: auto; flex: 1; margin: 10px 0 15px 0; -webkit-overflow-scrolling: touch; }
+      .cook-ing-row { display: flex; align-items: center; gap: 10px; padding: 11px 8px; border-bottom: 1px dashed #eee; cursor: pointer; }
+      .cook-ing-row.now { background: #FFF8E1; border-radius: 10px; border-bottom-color: transparent; }
+      .cook-ing-check { width: 22px; height: 22px; border: 2px solid var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; flex: 0 0 auto; font-size: 0.9rem; }
+      .cook-ing-row.done .cook-ing-check { background: var(--accent); }
+      .cook-ing-row.done .cook-ing-check::after { content: '✓'; }
+      .cook-ing-row.done .cook-ing-name, .cook-ing-row.done .cook-ing-amount { text-decoration: line-through; opacity: 0.45; }
+      .cook-ing-name { flex: 1; font-weight: bold; }
+      .cook-ing-amount { font-weight: bold; color: #1a9c90; }
+      .now-tag { font-size: 0.65rem; background: var(--primary); color: white; border-radius: 8px; padding: 2px 6px; margin-left: 6px; vertical-align: middle; }
       
       .btn-prev { background: #999; }
       .btn-next { background: var(--primary); }
@@ -149,7 +187,7 @@
         <header>
           <h1>レシピモン🍳</h1>
           <div class="status-bar">
-            <div><span class="rank-badge">RANK</span><span id="user-title" style="font-size:0.9rem;">読込中...</span></div>
+            <div><span class="rank-badge">RANK</span><span id="user-title" style="font-size:0.9rem;">読込中...</span><span id="sync-indicator" style="display:none; font-size:0.75rem; margin-left:5px;" title="最新データを取得中">🔄</span></div>
             <div class="xp-container"><div class="xp-bar" id="xp-bar"></div></div>
             <div style="font-size:0.8rem; margin-left:5px;">Lv.<span id="user-lvl">1</span></div>
           </div>
@@ -157,8 +195,11 @@
 
         <div class="search-area">
           <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="search-input" class="search-input" placeholder="レシピや食材を検索..." oninput="filterRecipes()">
+            <div style="position:relative; flex:1;">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="search-input" class="search-input" placeholder="レシピや食材を検索..." oninput="filterRecipes()">
+            </div>
+            <button class="refresh-btn" onclick="forceRefresh()" title="最新の状態に更新">🔄</button>
           </div>
           <div class="category-filters">
             <button class="cat-btn active" data-cat="all" onclick="setCategoryFilter('all')">全て</button>
@@ -178,7 +219,31 @@
       </div>
 
       <div id="view-quest" class="view"><header style="background: var(--accent);"><h1>お買い物クエスト🛒</h1></header><div style="padding: 20px;"><p style="text-align:center;">この材料を手に入れろ！</p><div class="quest-board" id="quest-list"></div><button class="puni-btn accent" onclick="finishQuest()">クエスト完了！（購入済）</button><button class="puni-btn" style="background:#ccc;" onclick="showHome()">中断して戻る</button></div></div>
-      <div id="view-cooking" class="view" style="padding:0;"><div class="cooking-container"><div class="cooking-progress">STEP <span id="cook-step-num">1</span> / <span id="cook-total">3</span></div><div class="cooking-card" id="cook-text"></div><div class="cooking-controls"><button class="cooking-btn btn-prev" onclick="prevStep()">もどる</button><button class="cooking-btn btn-next" id="btn-cook-next" onclick="nextStep()">次へ！</button></div><div style="text-align:center; margin-top:20px;"><button onclick="showSavedRecipe(currentRecipe)" style="background:none; border:none; color:#999; text-decoration:underline;">中断する</button></div></div></div>
+      <div id="view-cooking" class="view" style="padding:0;">
+        <div class="cooking-container">
+          <div class="cook-topbar">
+            <div class="cook-recipe-name" id="cook-recipe-name">レシピ<span class="cook-servings" id="cook-servings"></span></div>
+            <button class="ing-toggle-btn" onclick="openCookIngredients()">🥕 材料リスト</button>
+          </div>
+          <div class="cooking-progress">STEP <span id="cook-step-num">1</span> / <span id="cook-total">3</span></div>
+          <div class="cooking-card" id="cook-text"></div>
+          <div class="cook-now" id="cook-now-using"></div>
+          <div class="cooking-controls"><button class="cooking-btn btn-prev" onclick="prevStep()">もどる</button><button class="cooking-btn btn-next" id="btn-cook-next" onclick="nextStep()">次へ！</button></div>
+          <div style="text-align:center; margin-top:15px;"><button onclick="showSavedRecipe(currentRecipe)" style="background:none; border:none; color:#999; text-decoration:underline;">中断する</button></div>
+        </div>
+
+        <div class="ing-sheet-overlay" id="cook-ing-overlay" onclick="closeCookIngredients(event)">
+          <div class="ing-sheet" onclick="event.stopPropagation();">
+            <div class="ing-sheet-handle"></div>
+            <div class="ing-sheet-header">
+              <span class="ing-sheet-title">🥕 材料ぜんぶ</span>
+              <span style="font-size:0.8rem; color:#999;" id="cook-sheet-servings"></span>
+            </div>
+            <div class="ing-sheet-body" id="cook-ing-list"></div>
+            <button class="puni-btn accent" style="margin:0; width:100%; padding:12px;" onclick="closeCookIngredients()">閉じて続ける</button>
+          </div>
+        </div>
+      </div>
       <div id="view-loading" class="view"><div class="loading-container"><div class="pot">🍲</div><h2>グツグツ...</h2><p>レシピを解読中！</p><p style="font-size:0.8rem; color:#666; margin-top:10px;">AIが一生懸命読んでます...</p></div></div>
 
       <div id="view-card" class="view">
@@ -227,8 +292,16 @@
                   { id: 'mock1', name: 'モック目玉焼き', servings: '1', category: '主菜', ingredients: [{name:'卵', amount:'1個'}], steps: ['フライパンで焼く'], imageId: null, image: '' }
                 ]), 100);
               },
+              getInitialData: function() {
+                setTimeout(() => this._successHandler && this._successHandler({
+                  status: { xp: 50, level: 1, title: '見習いコック🥚', baseXp: 0, nextXp: 300 },
+                  recipes: [
+                    { id: 'mock1', name: 'モック目玉焼き', servings: '1', category: '主菜', ingredients: [{name:'卵', amount:'1個'}, {name:'サラダ油', amount:'小さじ1'}, {name:'塩こしょう', amount:'少々'}], steps: ['フライパンにサラダ油を入れて熱する', '卵を割り入れて焼く', '塩こしょうをふって完成'], imageId: null, image: '' }
+                  ]
+                }), 100);
+              },
               saveRecipe: function(recipe) {
-                setTimeout(() => this._successHandler && this._successHandler({ id: recipe.id || 'mock' + Date.now(), isUpdate: !!recipe.id, isLevelUp: false, gainedXp: 50, newXp: 100, newLevel: 1, newTitle: '見習いコック🥚', baseXp: 0, nextXp: 300 }), 500);
+                setTimeout(() => this._successHandler && this._successHandler({ id: recipe.id || 'mock' + Date.now(), imageId: recipe.imageId || '', isUpdate: !!recipe.id, isLevelUp: false, gainedXp: 50, newXp: 100, newLevel: 1, newTitle: '見習いコック🥚', baseXp: 0, nextXp: 300 }), 500);
               },
               deleteRecipe: function(id) {
                 setTimeout(() => this._successHandler && this._successHandler({ success: true }), 500);
@@ -260,20 +333,147 @@
       let searchKeyword = '';
       let currentUserStatus = { xp: 0, level: 1, baseXp: 0, nextXp: 300 };
 
-      window.onload = function() { refreshData(); };
-      function refreshData() { loadUserStatus(); loadRecipes(); }
+      // --- ローカルキャッシュ（前回のデータを即表示して、裏で最新を取りに行く） ---
+      const LS_LIST = 'recipemon_list_v1';
+      const LS_STATUS = 'recipemon_status_v1';
+      const LS_IMG_PREFIX = 'recipemon_img_v1_';
+      const LS_IMG_MAX_LENGTH = 600000; // これより大きい画像はローカルに置かない
 
-      function loadUserStatus() {
+      function lsGet(key) {
+        try { return localStorage.getItem(key); } catch (e) { return null; }
+      }
+      function lsSet(key, value) {
+        try { localStorage.setItem(key, value); return true; } catch (e) { return false; }
+      }
+      function lsRemove(key) {
+        try { localStorage.removeItem(key); } catch (e) {}
+      }
+
+      // 一覧のキャッシュ（画像本体は重いので除いて保存する）
+      function saveListCache() {
+        try {
+          const slim = allRecipes.map(r => ({
+            id: r.id, name: r.name, servings: r.servings, category: r.category,
+            ingredients: r.ingredients, steps: r.steps, imageId: r.imageId || ''
+          }));
+          lsSet(LS_LIST, JSON.stringify(slim));
+        } catch (e) { /* 容量オーバー等は無視 */ }
+      }
+      function saveStatusCache(status) {
+        try { lsSet(LS_STATUS, JSON.stringify(status)); } catch (e) {}
+      }
+
+      function getCachedImage(imageId) {
+        if (!imageId) return null;
+        return lsGet(LS_IMG_PREFIX + imageId);
+      }
+      function setCachedImage(imageId, dataUrl) {
+        if (!imageId || !dataUrl || dataUrl.length > LS_IMG_MAX_LENGTH) return;
+        if (!lsSet(LS_IMG_PREFIX + imageId, dataUrl)) {
+          clearImageCache();
+          lsSet(LS_IMG_PREFIX + imageId, dataUrl);
+        }
+      }
+      function clearImageCache() {
+        try {
+          const keys = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.indexOf(LS_IMG_PREFIX) === 0) keys.push(k);
+          }
+          keys.forEach(k => lsRemove(k));
+        } catch (e) {}
+      }
+
+      function setSyncing(isSyncing) {
+        const el = document.getElementById('sync-indicator');
+        if (el) el.style.display = isSyncing ? 'inline' : 'none';
+      }
+
+      window.onload = function() {
+        const hasCache = renderFromCache();
+        loadInitialData(hasCache);
+      };
+
+      // キャッシュから一瞬で描画（通信の完了を待たない）
+      function renderFromCache() {
+        let rendered = false;
+        try {
+          const rawStatus = lsGet(LS_STATUS);
+          if (rawStatus) {
+            const status = JSON.parse(rawStatus);
+            if (status && status.title) { currentUserStatus = status; updateStatusUI(status); }
+          }
+          const rawList = lsGet(LS_LIST);
+          if (rawList) {
+            const list = JSON.parse(rawList);
+            if (Array.isArray(list) && list.length > 0) {
+              allRecipes = list;
+              updateHomeUI();
+              document.getElementById('fab-quest').style.display = 'flex';
+              rendered = true;
+            }
+          }
+        } catch (e) { console.warn("キャッシュ読み込み失敗:", e); }
+        return rendered;
+      }
+
+      // ステータスとレシピ一覧を1回の通信でまとめて取得
+      function loadInitialData(hasCache, forceRefresh) {
+        const listEl = document.getElementById('recipe-list');
+        if (!hasCache) listEl.innerHTML = '<div style="text-align:center; padding:20px;">読み込み中...</div>';
+        setSyncing(true);
+
         google.script.run
-          .withSuccessHandler(status => {
-            currentUserStatus = status;
-            updateStatusUI(status);
+          .withSuccessHandler(data => {
+            setSyncing(false);
+            if (!data) return;
+            if (data.status) {
+              currentUserStatus = data.status;
+              updateStatusUI(data.status);
+              saveStatusCache(data.status);
+            }
+            if (Array.isArray(data.recipes)) {
+              applyRecipeList(data.recipes);
+              if (forceRefresh) showToast('最新の状態に更新したよ！✨', 'success');
+            }
           })
           .withFailureHandler(err => {
-            console.error("ステータス読み込みエラー:", err);
-            showToast("ステータスの読み込みに失敗しました", "error");
+            setSyncing(false);
+            console.error("初期データ読み込みエラー:", err);
+            if (hasCache) {
+              showToast('最新データの取得に失敗（前回の内容を表示中）', 'error');
+            } else {
+              listEl.innerHTML = '<div style="text-align:center; color: #FF6B6B; font-weight:bold; margin-top:20px;">データの読み込みに失敗しました😢<br>もう一度やり直してね</div>';
+            }
           })
-          .getUserStatus();
+          .getInitialData(!!forceRefresh);
+      }
+
+      // スプレッドシートを直接編集した時などに、手動で最新を取り直す
+      function forceRefresh() {
+        clearImageCache();
+        loadInitialData(allRecipes.length > 0, true);
+      }
+
+      // 取得した一覧を反映（すでに読み込んだ画像は捨てずに引き継ぐ）
+      function applyRecipeList(recipes) {
+        const imageMap = {};
+        allRecipes.forEach(r => { if (r.image) imageMap[r.id] = r.image; });
+        recipes.forEach(r => {
+          if (!r.image && imageMap[r.id]) r.image = imageMap[r.id];
+        });
+        allRecipes = recipes;
+        updateHomeUI();
+        saveListCache();
+        document.getElementById('fab-quest').style.display = recipes.length > 0 ? 'flex' : 'none';
+      }
+
+      // HTMLエスケープ（材料名などに < が入っていても崩れないように）
+      function esc(str) {
+        return String(str == null ? '' : str)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       }
 
       function getLevelThreshold(level) {
@@ -331,6 +531,7 @@
         };
         currentUserStatus = newStatus;
         updateStatusUI(newStatus);
+        saveStatusCache(newStatus);
       }
 
       function closeLevelUp() { document.getElementById('levelup-modal').classList.remove('active'); }
@@ -349,6 +550,11 @@
         document.getElementById(viewId).classList.add('active');
         const fabGroup = document.getElementById('fab-group');
         fabGroup.style.display = (viewId === 'view-home' && !isQuestMode) ? 'flex' : 'none';
+        // クッキングナビ以外に移動したら材料シートは閉じておく
+        if (viewId !== 'view-cooking') {
+          const overlay = document.getElementById('cook-ing-overlay');
+          if (overlay) overlay.classList.remove('active');
+        }
       }
       function showHome() {
         isQuestMode = false; selectedRecipeIds.clear(); 
@@ -400,9 +606,10 @@
         const listEl = document.getElementById('recipe-list');
         const filtered = allRecipes.filter(r => {
           const matchCat = (filterCategory === 'all' || r.category === filterCategory);
-          const matchText = (searchKeyword === '') || 
-                            r.name.toLowerCase().includes(searchKeyword) || 
-                            r.ingredients.some(i => i.name.toLowerCase().includes(searchKeyword));
+          const ingredients = Array.isArray(r.ingredients) ? r.ingredients : [];
+          const matchText = (searchKeyword === '') ||
+                            String(r.name || '').toLowerCase().includes(searchKeyword) ||
+                            ingredients.some(i => String((i && i.name) || '').toLowerCase().includes(searchKeyword));
           return matchCat && matchText;
         });
 
@@ -420,10 +627,10 @@
             <div class="recipe-thumb ${isSel?'selected':''}" onclick="onRecipeClick('${r.id}')">
               <div class="thumb-placeholder" style="background-color:${catColor}20; color:${catColor};">
                 ${catIcon}
-                <div class="cat-badge-sm" style="background:${catColor};">${cat}</div>
+                <div class="cat-badge-sm" style="background:${catColor};">${esc(cat)}</div>
               </div>
               <div style="flex:1;">
-                <div style="font-weight:bold; color:#555;">${r.name}</div>
+                <div style="font-weight:bold; color:#555;">${esc(r.name)}</div>
               </div>
               <div class="check-mark">✓</div>
             </div>`;
@@ -431,15 +638,121 @@
         listEl.innerHTML = html;
       }
 
+      // ================= クッキングナビ =================
+      let cookDoneIngredients = {}; // 使い終わった材料のチェック状態
+
       function startCooking() {
-        if (!currentRecipe || !currentRecipe.steps.length) return;
-        cookingStepIndex = 0; updateCookingUI(); showView('view-cooking');
+        if (!currentRecipe || !currentRecipe.steps || !currentRecipe.steps.length) return;
+        cookingStepIndex = 0;
+        cookDoneIngredients = {};
+        updateCookingUI();
+        showView('view-cooking');
+        // 作り始める前に「何がどれだけ必要か」を必ず確認できるように、最初は材料リストを開く
+        if (currentRecipe.ingredients && currentRecipe.ingredients.length > 0) {
+          openCookIngredients();
+        } else {
+          closeCookIngredients();
+        }
       }
+
+      // 材料名を比較用に正規化（かっこ書き・空白・記号を落とす）
+      function normalizeForMatch(str) {
+        return String(str == null ? '' : str)
+          .replace(/[（(][^）)]*[）)]/g, '')
+          .replace(/[\s　・,、／\/]/g, '')
+          .toLowerCase();
+      }
+
+      // その手順の文章に出てくる材料を拾う
+      function getStepIngredients(stepIndex) {
+        if (!currentRecipe || !Array.isArray(currentRecipe.ingredients)) return [];
+        const stepText = normalizeForMatch((currentRecipe.steps || [])[stepIndex] || '');
+        if (!stepText) return [];
+
+        return currentRecipe.ingredients.filter(ing => {
+          const name = normalizeForMatch(ing && ing.name);
+          if (!name) return false;
+          if (stepText.indexOf(name) !== -1) return true;
+          // 「鶏もも肉」→「鶏もも」のように、長い材料名は前方一致でも拾う
+          if (name.length >= 4) {
+            const prefixLen = Math.max(3, Math.ceil(name.length * 0.6));
+            if (prefixLen < name.length && stepText.indexOf(name.slice(0, prefixLen)) !== -1) return true;
+          }
+          return false;
+        });
+      }
+
+      function renderCookNowUsing() {
+        const el = document.getElementById('cook-now-using');
+        if (!el) return;
+        const ings = getStepIngredients(cookingStepIndex);
+
+        if (ings.length === 0) {
+          el.className = 'cook-now empty';
+          el.innerHTML = '<div class="cook-now-title">🥕 この手順で使う材料</div>'
+            + '<div class="cook-now-hint">自動で見つけられなかったよ。右上の「🥕 材料リスト」で全部の分量が見られるよ！</div>';
+          return;
+        }
+
+        el.className = 'cook-now';
+        el.innerHTML = '<div class="cook-now-title">🥕 今つかう材料</div>'
+          + ings.map(ing => `<span class="cook-chip">${esc(ing.name)}<span class="amt">${esc(ing.amount || '適量')}</span></span>`).join('');
+      }
+
+      function renderCookIngredientList() {
+        const listEl = document.getElementById('cook-ing-list');
+        if (!listEl) return;
+        const ingredients = (currentRecipe && currentRecipe.ingredients) || [];
+
+        if (ingredients.length === 0) {
+          listEl.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">材料が登録されていないよ🥲<br>編集画面から追加できるよ！</div>';
+          return;
+        }
+
+        const nowNames = {};
+        getStepIngredients(cookingStepIndex).forEach(ing => { nowNames[ing.name] = true; });
+
+        listEl.innerHTML = ingredients.map((ing, i) => {
+          const isNow = !!nowNames[ing.name];
+          const isDone = !!cookDoneIngredients[i];
+          return `
+            <div class="cook-ing-row ${isNow ? 'now' : ''} ${isDone ? 'done' : ''}" onclick="toggleCookIngredient(${i})">
+              <div class="cook-ing-check"></div>
+              <div class="cook-ing-name">${esc(ing.name)}${isNow ? '<span class="now-tag">今つかう</span>' : ''}</div>
+              <div class="cook-ing-amount">${esc(ing.amount || '適量')}</div>
+            </div>`;
+        }).join('');
+      }
+
+      function toggleCookIngredient(index) {
+        cookDoneIngredients[index] = !cookDoneIngredients[index];
+        renderCookIngredientList();
+      }
+
+      function openCookIngredients() {
+        renderCookIngredientList();
+        document.getElementById('cook-ing-overlay').classList.add('active');
+      }
+
+      function closeCookIngredients(event) {
+        if (event && event.target && event.target.id !== 'cook-ing-overlay') return;
+        document.getElementById('cook-ing-overlay').classList.remove('active');
+      }
+
       function updateCookingUI() {
         const steps = currentRecipe.steps;
         document.getElementById('cook-step-num').textContent = cookingStepIndex + 1;
         document.getElementById('cook-total').textContent = steps.length;
         document.getElementById('cook-text').textContent = steps[cookingStepIndex];
+
+        // 材料と分量をナビ中も常に確認できるようにする
+        const servingsText = currentRecipe.servings ? `👤 ${currentRecipe.servings}人分` : '';
+        document.getElementById('cook-recipe-name').innerHTML =
+          esc(currentRecipe.name || 'レシピ') + `<span class="cook-servings"> ${esc(servingsText)}</span>`;
+        document.getElementById('cook-sheet-servings').textContent = servingsText;
+        renderCookNowUsing();
+        renderCookIngredientList();
+
         const nextBtn = document.getElementById('btn-cook-next');
         if (cookingStepIndex === steps.length - 1) { 
             nextBtn.textContent = '美味しくできた！😋'; 
@@ -482,9 +795,16 @@
 
       function confirmDelete() {
         showConfirm('本当にこのレシピとお別れする？😢\n（消すと元に戻せません）', () => {
+           const deletedId = currentRecipe.id;
+           const deletedImageId = currentRecipe.imageId;
            google.script.run
              .withSuccessHandler(res => {
-               if(res.success) { showToast('レシピとお別れしました👋'); refreshData(); showHome(); }
+               if(res.success) {
+                 showToast('レシピとお別れしました👋');
+                 if (deletedImageId) lsRemove(LS_IMG_PREFIX + deletedImageId);
+                 removeLocalRecipe(deletedId);
+                 showHome();
+               }
                else { showToast('削除に失敗しました', 'error'); }
              })
              .withFailureHandler(err => {
@@ -539,17 +859,20 @@
           imageOverlay = `<div class="image-change-overlay visible" onclick="document.getElementById('replaceImageInput').click()"><div class="overlay-text">📸 写真を変更</div></div>`;
         }
 
-        let ingredientsHtml = data.ingredients.map((ing, i) => `
+        const ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
+        const steps = Array.isArray(data.steps) ? data.steps : [];
+
+        let ingredientsHtml = ingredients.map((ing, i) => `
             <div class="ingredient-item">
               <span style="font-size:1.2rem; margin-right:10px;">◻️</span>
-              <div style="flex:1;" ${contentEditable} data-type="ing-name" data-idx="${i}">${ing.name}</div>
-              <div style="font-weight:bold;" ${contentEditable} data-type="ing-amount" data-idx="${i}">${ing.amount}</div>
+              <div style="flex:1;" ${contentEditable} data-type="ing-name" data-idx="${i}">${esc(ing && ing.name)}</div>
+              <div style="font-weight:bold;" ${contentEditable} data-type="ing-amount" data-idx="${i}">${esc(ing && ing.amount)}</div>
             </div>`).join('');
-        
-        let stepsHtml = data.steps.map((step, i) => `
+
+        let stepsHtml = steps.map((step, i) => `
             <div class="step-item">
               <div class="step-num">${i + 1}</div>
-              <div ${contentEditable} data-type="step" data-idx="${i}">${step}</div>
+              <div ${contentEditable} data-type="step" data-idx="${i}">${esc(step)}</div>
             </div>`).join('');
 
         if (isEditable) {
@@ -586,9 +909,9 @@
             ${imageOverlay}
           </div>
           <div class="card-header">
-            <h2 class="card-title" ${contentEditable} id="edit-title">${data.name}</h2>
+            <h2 class="card-title" ${contentEditable} id="edit-title">${esc(data.name)}</h2>
             <div>${categoryUi}</div>
-            <div class="servings-badge">👤 <span ${contentEditable} id="edit-servings">${data.servings}</span>人分</div>
+            <div class="servings-badge">👤 <span ${contentEditable} id="edit-servings">${esc(data.servings)}</span>人分</div>
           </div>
           <div class="ingredients-section"><div class="section-title">🥕 装備品 (材料)</div>${ingredientsHtml}</div>
           <div class="steps-section"><div class="section-title">📝 攻略チャート (手順)</div>${stepsHtml}</div>
@@ -649,11 +972,27 @@
 
         const btn = document.getElementById('btn-save'); btn.textContent = '保存中...';
         btn.disabled = true;
-        
+
+        // ★写真が変わっていない時は画像を送らない（毎回送ると保存がとても遅くなる）
+        const payload = {
+          id: currentRecipe.id || '',
+          name: currentRecipe.name,
+          servings: currentRecipe.servings,
+          category: currentRecipe.category || '主菜',
+          ingredients: currentRecipe.ingredients,
+          steps: currentRecipe.steps,
+          imageId: currentRecipe.imageId || '',
+          image: currentRecipe.imageDirty ? (currentRecipe.image || '') : ''
+        };
+
         google.script.run
-          .withSuccessHandler(res => { 
+          .withSuccessHandler(res => {
             currentRecipe.id = res.id;
-            handleXpResult(res); 
+            if (res.imageId) currentRecipe.imageId = res.imageId;
+            currentRecipe.imageDirty = false;
+            if (currentRecipe.imageId && currentRecipe.image) setCachedImage(currentRecipe.imageId, currentRecipe.image);
+            upsertLocalRecipe(currentRecipe, !res.isUpdate);
+            handleXpResult(res);
             if (res.isUpdate) renderCard(currentRecipe, false); else showHome();
           })
           .withFailureHandler(err => {
@@ -662,21 +1001,89 @@
             showToast('保存に失敗しました', 'error');
             console.error(err);
           })
-          .saveRecipe(currentRecipe);
+          .saveRecipe(payload);
+      }
+
+      // 保存・削除のあとに一覧を取り直さず、手元のデータを直接更新する（待ち時間ゼロ）
+      function upsertLocalRecipe(recipe, isNew) {
+        const index = allRecipes.findIndex(r => r.id === recipe.id);
+        if (index >= 0) allRecipes[index] = recipe;
+        else if (isNew) allRecipes.unshift(recipe); // 一覧は新しい順
+        else allRecipes.push(recipe);
+        updateHomeUI();
+        saveListCache();
+        document.getElementById('fab-quest').style.display = allRecipes.length > 0 ? 'flex' : 'none';
+      }
+
+      function removeLocalRecipe(id) {
+        allRecipes = allRecipes.filter(r => r.id !== id);
+        selectedRecipeIds.delete(id);
+        updateHomeUI();
+        saveListCache();
+        document.getElementById('fab-quest').style.display = allRecipes.length > 0 ? 'flex' : 'none';
+      }
+
+      // ===== 画像の軽量化（アップロード・読み込みを速くする要） =====
+      // 解析用は文字が潰れないよう大きめ、保存用はしっかり縮める
+      const ANALYZE_MAX_SIZE = 2200, ANALYZE_QUALITY = 0.9;
+      const STORE_MAX_SIZE = 900, STORE_QUALITY = 0.82;
+
+      function loadImageFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            const dataUrl = e.target.result;
+            const img = new Image();
+            img.onload = () => resolve({ img: img, dataUrl: dataUrl });
+            img.onerror = () => resolve({ img: null, dataUrl: dataUrl });
+            img.src = dataUrl;
+          };
+          reader.onerror = err => reject(err);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function resizeLoadedImage(loaded, maxSize, quality) {
+        const img = loaded.img;
+        const original = loaded.dataUrl;
+        if (!img || !img.width || !img.height) return original;
+        try {
+          const longSide = Math.max(img.width, img.height);
+          const scale = Math.min(1, maxSize / longSide);
+          // 十分に小さければそのまま使う（無駄な再エンコードを避ける）
+          if (scale >= 1 && original.length < 700000) return original;
+
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h); // 透過PNG対策
+          ctx.drawImage(img, 0, 0, w, h);
+          const resized = canvas.toDataURL('image/jpeg', quality);
+          return (resized && resized.length < original.length) ? resized : original;
+        } catch (e) {
+          console.warn("画像の圧縮に失敗:", e);
+          return original;
+        }
       }
 
       function changeRecipeImage(input) {
         if (input.files && input.files[0]) {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            const base64 = e.target.result;
-            currentRecipe.image = base64;
-            const imgEl = document.getElementById('card-img-el');
-            imgEl.src = base64;
-            imgEl.style.opacity = '1';
-            showToast('写真を入れ替えたよ！📸 (保存してね)');
-          };
-          reader.readAsDataURL(input.files[0]);
+          loadImageFile(input.files[0])
+            .then(loaded => {
+              const base64 = resizeLoadedImage(loaded, STORE_MAX_SIZE, STORE_QUALITY);
+              currentRecipe.image = base64;
+              currentRecipe.imageDirty = true; // 保存時にだけアップロードする
+              const imgEl = document.getElementById('card-img-el');
+              if (imgEl) {
+                imgEl.src = base64;
+                imgEl.style.opacity = '1';
+              }
+              showToast('写真を入れ替えたよ！📸 (保存してね)');
+            })
+            .catch(() => showToast('写真の読み込みに失敗しました', 'error'));
         }
         input.value = '';
       }
@@ -684,53 +1091,56 @@
       function handleImageUpload(input) {
         if (input.files && input.files[0]) {
           showView('view-loading');
-          const reader = new FileReader();
-          reader.onload = e => {
-            google.script.run
-              .withSuccessHandler(onAnalysisComplete)
-              .withFailureHandler(err => {
-                showToast("画像の解析に失敗しました", "error");
-                showHome();
-              })
-              .analyzeImage(e.target.result);
-          };
-          reader.readAsDataURL(input.files[0]);
+          loadImageFile(input.files[0])
+            .then(loaded => {
+              const forAnalysis = resizeLoadedImage(loaded, ANALYZE_MAX_SIZE, ANALYZE_QUALITY);
+              // 保存するのは軽量版（Driveへの書き込みも次回の読み込みも速くなる）
+              const forStorage = resizeLoadedImage(loaded, STORE_MAX_SIZE, STORE_QUALITY);
+              google.script.run
+                .withSuccessHandler(data => onAnalysisComplete(data, forStorage))
+                .withFailureHandler(err => {
+                  console.error(err);
+                  showToast("画像の解析に失敗しました", "error");
+                  showHome();
+                })
+                .analyzeImage(forAnalysis);
+            })
+            .catch(() => {
+              showToast('写真の読み込みに失敗しました', 'error');
+              showHome();
+            });
         }
         input.value = '';
       }
-      function onAnalysisComplete(data) {
-        if (data.error) { showToast(data.message || 'エラーが発生しました', 'error'); showHome(); return; }
+      function onAnalysisComplete(data, storageImage) {
+        if (!data || data.error) { showToast((data && data.message) || 'エラーが発生しました', 'error'); showHome(); return; }
+        if (storageImage) data.image = storageImage;
+        data.imageDirty = true;
         currentRecipe = data; renderCard(data, true); showView('view-card');
         const imgEl = document.getElementById('card-img-el');
         if(imgEl) imgEl.style.opacity = '1';
       }
 
-      function loadRecipes() {
-        const listEl = document.getElementById('recipe-list');
-        listEl.innerHTML = '<div style="text-align:center; padding:20px;">読み込み中...</div>';
-        
-        google.script.run
-          .withSuccessHandler(recipes => {
-            allRecipes = recipes; updateHomeUI();
-            if (recipes.length > 0) document.getElementById('fab-quest').style.display = 'flex';
-          })
-          .withFailureHandler(err => {
-            console.error("レシピ読み込みエラー:", err);
-            listEl.innerHTML = '<div style="text-align:center; color: #FF6B6B; font-weight:bold; margin-top:20px;">データの読み込みに失敗しました😢<br>もう一度やり直してね</div>';
-          })
-          .getRecipeList();
-      }
-      
-      function showSavedRecipe(recipe) { 
-        currentRecipe = recipe; 
-        renderCard(recipe, false); 
-        showView('view-card'); 
-        
+      function showSavedRecipe(recipe) {
+        // 端末に保存済みの画像があれば通信せずに即表示
+        if (recipe.imageId && !recipe.image) {
+          const cachedImage = getCachedImage(recipe.imageId);
+          if (cachedImage) recipe.image = cachedImage;
+        }
+
+        currentRecipe = recipe;
+        recipe.imageDirty = false;
+        renderCard(recipe, false);
+        showView('view-card');
+
         if (recipe.imageId && !recipe.image) {
            google.script.run
              .withSuccessHandler(base64 => {
+               if (!base64) return;
+               setCachedImage(recipe.imageId, base64);
+               recipe.image = base64;
                if(currentRecipe.id === recipe.id) {
-                 currentRecipe.image = base64; 
+                 currentRecipe.image = base64;
                  const targetEl = document.getElementById('card-img-el');
                  if(targetEl) {
                    targetEl.src = base64;
@@ -738,6 +1148,7 @@
                  }
                }
              })
+             .withFailureHandler(err => { console.error("画像読み込みエラー:", err); })
              .getRecipeImage(recipe.imageId);
         } else if (recipe.image) {
            const targetEl = document.getElementById('card-img-el');
@@ -770,13 +1181,17 @@
         const ingredients = {};
         selectedRecipeIds.forEach(id => {
           const r = allRecipes.find(r => r.id === id);
+          if (!r || !Array.isArray(r.ingredients)) return;
           r.ingredients.forEach(ing => {
-            const n = ing.name.trim(); if (!ingredients[n]) ingredients[n] = []; ingredients[n].push(ing.amount);
+            const n = String((ing && ing.name) || '').trim();
+            if (!n) return;
+            if (!ingredients[n]) ingredients[n] = [];
+            ingredients[n].push(String((ing && ing.amount) || '適量'));
           });
         });
         let html = '';
         for (const [n, a] of Object.entries(ingredients)) {
-          html += `<div class="quest-item" onclick="this.classList.toggle('checked')"><div class="quest-checkbox"></div><div style="flex:1; font-weight:bold;">${n}</div><div style="color:#666;">${a.join(' + ')}</div></div>`;
+          html += `<div class="quest-item" onclick="this.classList.toggle('checked')"><div class="quest-checkbox"></div><div style="flex:1; font-weight:bold;">${esc(n)}</div><div style="color:#666;">${esc(a.join(' + '))}</div></div>`;
         }
         document.getElementById('quest-list').innerHTML = html;
         showView('view-quest'); document.getElementById('quest-bar').classList.remove('active');
